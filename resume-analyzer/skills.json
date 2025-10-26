@@ -1,0 +1,9 @@
+[
+  "python", "java", "javascript", "typescript", "rust", "go",
+  "react", "vue", "angular", "svelte", "next.js", "nuxt",
+  "express", "fastapi", "django", "spring boot",
+  "mysql", "postgresql", "mongodb", "redis", "elasticsearch",
+  "aws", "azure", "gcp", "docker", "kubernetes", "terraform",
+  "machine learning", "deep learning", "nlp", "computer vision",
+  "agile", "scrum", "ci/cd", "microservices", "rest api"
+]
