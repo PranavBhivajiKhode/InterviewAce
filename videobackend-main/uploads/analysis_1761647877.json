@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "emotions": {
+    "neutral": 1
+  },
+  "gaze": {
+    "percentage": 100.0,
+    "looked_away_events": 0,
+    "total_face_frames": 1
+  },
+  "fluency": {
+    "transcript": "so it's recording in the mic is on so whatever I am saying is being transcribed so if I am saying that I am giving a seminar to the panel for my project is AI mock interview and I am entering the eye contact and my face is neutral not not behaviour analysis so after entering the interview",
+    "filler_count": 4,
+    "word_count": 58
+  }
+}

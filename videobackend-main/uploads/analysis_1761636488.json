@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "emotions": {
+    "surprise": 1
+  },
+  "gaze": {
+    "percentage": 100.0,
+    "looked_away_events": 0,
+    "total_face_frames": 1
+  },
+  "fluency": {
+    "transcript": "that commons logging discovery in action with spring jcl please remove commons logging jar from class path in order to potential conflicts",
+    "filler_count": 0,
+    "word_count": 22
+  }
+}

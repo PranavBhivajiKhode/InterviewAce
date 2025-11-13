@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "emotions": {
+    "neutral": 1
+  },
+  "gaze": {
+    "percentage": 100.0,
+    "looked_away_events": 0,
+    "total_face_frames": 1
+  },
+  "fluency": {
+    "transcript": "camera",
+    "filler_count": 0,
+    "word_count": 1
+  }
+}

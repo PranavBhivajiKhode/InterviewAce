@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "emotions": {
+    "happy": 1
+  },
+  "gaze": {
+    "percentage": 0,
+    "looked_away_events": 0,
+    "total_face_frames": 0
+  },
+  "fluency": {
+    "transcript": "challenging web development role where I can apply my problem solving skills and expertise in modern technologies to build relative efficiency application to contribute to impactful projects continuously grow my technical abilities and delivered solution that allows User experience and drive business success",
+    "filler_count": 0,
+    "word_count": 43
+  }
+}

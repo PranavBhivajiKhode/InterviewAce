@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "emotions": {
+    "happy": 1
+  },
+  "gaze": {
+    "percentage": 100.0,
+    "looked_away_events": 0,
+    "total_face_frames": 1
+  },
+  "fluency": {
+    "transcript": "so I am a what is the recording",
+    "filler_count": 1,
+    "word_count": 8
+  }
+}

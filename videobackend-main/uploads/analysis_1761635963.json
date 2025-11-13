@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "emotions": {
+    "happy": 1
+  },
+  "gaze": {
+    "percentage": 0.0,
+    "looked_away_events": 1,
+    "total_face_frames": 1
+  },
+  "fluency": {
+    "transcript": "in one project we initially planned to use Flash for the backend but Midway the client request switch to Spring boot for better scalability I quickly learn spring boot through documentation and tutorials reload the backend API and integrated them with the existing react front end this adaptability help us meet the new requirement without deleting the delivery",
+    "filler_count": 0,
+    "word_count": 58
+  }
+}
