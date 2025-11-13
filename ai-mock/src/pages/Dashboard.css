@@ -1,0 +1,25 @@
+/* Base styles to ensure content is visible */
+.min-h-screen {
+  min-height: 100vh;
+}
+
+.bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #f0f7ff, #e8eaff);
+}
+
+/* Form styling */
+.form-container {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Make sure text is visible */
+h1, p, label {
+  color: #1a1a1a;
+}
+
+.text-white {
+  color: white;
+}
