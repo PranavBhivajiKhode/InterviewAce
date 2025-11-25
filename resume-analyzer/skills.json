@@ -1,9 +1,39 @@
 [
   "python", "java", "javascript", "typescript", "rust", "go",
-  "react", "vue", "angular", "svelte", "next.js", "nuxt",
-  "express", "fastapi", "django", "spring boot",
+  "c", "c++", "c#", "scala", "r", "sql", "nosql",
+
+  "react", "vue", "angular", "svelte", "next.js", "nuxt", "tailwind", "bootstrap",
+
+  "html", "css", "responsive design", "ui", "ux",
+  "frontend", "backend", "full-stack",
+
+  "node.js", "express", "fastapi", "django", "spring boot", "flask",
+
   "mysql", "postgresql", "mongodb", "redis", "elasticsearch",
-  "aws", "azure", "gcp", "docker", "kubernetes", "terraform",
+
+  "docker", "kubernetes", "terraform", "jenkins", "ansible", "ci/cd", "linux",
+  "aws", "azure", "gcp",
+
+  "api", "rest", "rest api", "graphql", "microservices",
+  "server", "deployment", "scalability", "performance",
+
+  "git", "version control", "github", "gitlab",
+
+  "pandas", "numpy", "matplotlib", "scikit-learn",
   "machine learning", "deep learning", "nlp", "computer vision",
-  "agile", "scrum", "ci/cd", "microservices", "rest api"
+  "tensorflow", "pytorch", "model deployment", "feature engineering",
+
+  "statistics", "excel", "data analysis", "tableau", "power bi",
+  "visualization", "dashboards", "metrics", "insights", "forecasting",
+  "data-driven",
+
+  "agile", "scrum", "jira",
+
+  "testing", "unit testing", "automation testing",
+
+  "optimization", "architecture", "infrastructure",
+
+  "looker", "spark", "mlops",
+
+  "pipelines", "neural network", "training", "validation"
 ]

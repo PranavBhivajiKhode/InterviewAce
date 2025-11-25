@@ -1,5 +1,22 @@
 import React, { useState } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, TrendingUp, Award, Briefcase, GraduationCap, Target, Zap } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  TrendingUp,
+  Award,
+  Briefcase,
+  GraduationCap,
+  Target,
+  Zap,
+  Mail,
+  Phone,
+  Linkedin,
+  Github,
+  Globe2,
+  Info
+} from 'lucide-react';
 
 export default function ResumeAnalyzer() {
   const [currentPage, setCurrentPage] = useState('form'); // 'form' or 'results'
@@ -24,20 +41,25 @@ export default function ResumeAnalyzer() {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    
+
     if (file) {
-      if (file.type !== 'application/pdf') {
-        setError('Please upload a PDF file');
+      const fileName = file.name.toLowerCase();
+      const allowedExtensions = ['.pdf', '.docx'];
+
+      const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+      if (!isValidExtension) {
+        setError('Please upload a PDF or DOCX file');
         setSelectedFile(null);
         return;
       }
-      
+
       if (file.size > 10 * 1024 * 1024) {
         setError('File size must be less than 10MB');
         setSelectedFile(null);
         return;
       }
-      
+
       setSelectedFile(file);
       setError('');
     }
@@ -45,14 +67,14 @@ export default function ResumeAnalyzer() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.role || !formData.experience) {
       setError('Please fill all fields');
       return;
     }
-    
+
     if (!selectedFile) {
-      setError('Please select a PDF file');
+      setError('Please select a resume file');
       return;
     }
 
@@ -80,10 +102,10 @@ export default function ResumeAnalyzer() {
       const data = await response.json();
       setResult(data);
       setCurrentPage('results');
-      
+
       // Save to localStorage
       saveToLocalStorage(data);
-      
+
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -170,7 +192,10 @@ export default function ResumeAnalyzer() {
                 <option value="">Select your target role</option>
                 {roles.map((role) => (
                   <option key={role} value={role}>
-                    {role.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    {role
+                      .split(' ')
+                      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                      .join(' ')}
                   </option>
                 ))}
               </select>
@@ -198,12 +223,12 @@ export default function ResumeAnalyzer() {
             {/* File Upload */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Upload Resume (PDF only) <span className="text-red-500">*</span>
+                Upload Resume (PDF or DOCX) <span className="text-red-500">*</span>
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50">
                 <input
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.docx"
                   onChange={handleFileChange}
                   className="hidden"
                   id="file-upload"
@@ -222,7 +247,7 @@ export default function ResumeAnalyzer() {
                   ) : (
                     <div className="space-y-2">
                       <Upload className="w-12 h-12 text-gray-400 mx-auto" />
-                      <p className="text-gray-600 font-medium">Click to upload PDF</p>
+                      <p className="text-gray-600 font-medium">Click to upload PDF or DOCX</p>
                       <p className="text-xs text-gray-400">Maximum file size: 10MB</p>
                     </div>
                   )}
@@ -249,8 +274,20 @@ export default function ResumeAnalyzer() {
               {loading ? (
                 <span className="flex items-center justify-center">
                   <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
                   </svg>
                   Analyzing Your Resume...
                 </span>
@@ -317,22 +354,32 @@ function ResultsPage({ data, onBack }) {
 
   const getCategoryMax = (category) => {
     const maxScores = {
-      "Format & Structure": 15,
-      "Contact Information": 5,
-      "Skills Match": 25,
-      "Experience Quality": 20,
-      "Education": 10,
-      "Achievements & Impact": 15,
-      "ATS Optimization": 10
+      'Format & Structure': 15,
+      'Contact Information': 5,
+      'Skills Match': 25,
+      'Experience Quality': 20,
+      Education: 10,
+      'Achievements & Impact': 15,
+      'ATS Optimization': 10
     };
     return maxScores[category] || 20;
   };
 
+  const formatExperienceLabel = (expString) => {
+    const num = parseFloat(expString);
+    if (isNaN(num)) return expString; // e.g. "Not specified"
+    return `${num} ${num === 1 ? 'year' : 'years'}`;
+  };
+
+  const contactInfo = data.meta?.contact_info || {};
+  const experienceSummary = data.meta?.experience_summary || {};
+  const atsChecks = data.meta?.ats_checks || {};
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="max-w-5xl mx-auto">
+      <div className="w-full px-8">
         {/* Back Button */}
-        <button 
+        <button
           onClick={onBack}
           className="mb-6 flex items-center text-blue-600 hover:text-blue-700 font-medium transition"
         >
@@ -348,11 +395,14 @@ function ResultsPage({ data, onBack }) {
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 text-center">
             <h2 className="text-3xl font-bold mb-2">{data.candidate_name}</h2>
             <p className="text-blue-100 text-lg mb-6">
-              {data.role.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} 
-              {' • '} 
-              {data.experience} {parseFloat(data.experience) === 1 ? 'year' : 'years'} experience
+              {data.role
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ')}
+              {' • '}
+              {formatExperienceLabel(data.experience)} experience
             </p>
-            
+
             {/* Score Circle */}
             <div className="inline-block">
               <div className={`${getScoreBgColor(data.ats_score)} rounded-full p-8 inline-block`}>
@@ -362,31 +412,32 @@ function ResultsPage({ data, onBack }) {
                 <div className="text-xl font-semibold text-gray-700 mt-2">{data.score_label}</div>
               </div>
             </div>
-            
+
             <p className="text-blue-100 mt-4">
-              Your resume scores better than {data.match_percentage}% of the baseline
+              Skills match for this role: <span className="font-semibold">{data.match_percentage || 0}%</span>
             </p>
           </div>
 
           {/* Content Section */}
           <div className="p-8 space-y-8">
             {/* Critical Issues */}
-            {data.recommendations.critical_issues && data.recommendations.critical_issues.length > 0 && (
-              <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-6">
-                <div className="flex items-center mb-4">
-                  <AlertCircle className="w-6 h-6 text-red-600 mr-3" />
-                  <h3 className="text-xl font-bold text-red-900">Critical Issues to Fix</h3>
+            {data.recommendations?.critical_issues &&
+              data.recommendations.critical_issues.length > 0 && (
+                <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-6">
+                  <div className="flex items-center mb-4">
+                    <AlertCircle className="w-6 h-6 text-red-600 mr-3" />
+                    <h3 className="text-xl font-bold text-red-900">Critical Issues to Fix</h3>
+                  </div>
+                  <ul className="space-y-2">
+                    {data.recommendations.critical_issues.map((issue, i) => (
+                      <li key={i} className="text-red-800 flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{issue}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="space-y-2">
-                  {data.recommendations.critical_issues.map((issue, i) => (
-                    <li key={i} className="text-red-800 flex items-start">
-                      <span className="mr-2">•</span>
-                      <span>{issue}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              )}
 
             {/* Score Breakdown */}
             <div>
@@ -395,7 +446,7 @@ function ResultsPage({ data, onBack }) {
                 Detailed Score Breakdown
               </h3>
               <div className="space-y-4">
-                {Object.entries(data.detailed_scores).map(([category, score]) => {
+                {Object.entries(data.detailed_scores || {}).map(([category, score]) => {
                   const maxScore = getCategoryMax(category);
                   const percentage = (score / maxScore) * 100;
                   return (
@@ -407,11 +458,15 @@ function ResultsPage({ data, onBack }) {
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all duration-500 ${
-                            percentage >= 80 ? 'bg-green-500' :
-                            percentage >= 60 ? 'bg-blue-500' :
-                            percentage >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                            percentage >= 80
+                              ? 'bg-green-500'
+                              : percentage >= 60
+                              ? 'bg-blue-500'
+                              : percentage >= 40
+                              ? 'bg-orange-500'
+                              : 'bg-red-500'
                           }`}
                           style={{ width: `${percentage}%` }}
                         />
@@ -422,10 +477,84 @@ function ResultsPage({ data, onBack }) {
               </div>
             </div>
 
+            {/* Profile & ATS Health */}
+            {(data.meta || data.meta?.contact_info || data.meta?.ats_checks) && (
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Contact & Profile */}
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                  <div className="flex items-center mb-4">
+                    <Info className="w-6 h-6 text-blue-600 mr-3" />
+                    <h3 className="text-lg font-bold text-gray-900">Contact & Profile</h3>
+                  </div>
+                  <div className="space-y-2 text-sm text-gray-700">
+                    <ContactRow label="Email" present={contactInfo.email} Icon={Mail} />
+                    <ContactRow label="Phone" present={contactInfo.phone} Icon={Phone} />
+                    <ContactRow label="LinkedIn" present={contactInfo.linkedin} Icon={Linkedin} />
+                    <ContactRow label="GitHub" present={contactInfo.github} Icon={Github} />
+                    <ContactRow label="Portfolio / Website" present={contactInfo.portfolio} Icon={Globe2} />
+                  </div>
+
+                  {experienceSummary && (
+                    <div className="mt-4 text-sm text-gray-700">
+                      <p className="font-semibold mb-1">Experience Summary:</p>
+                      <p>
+                        Detected experience:{' '}
+                        <span className="font-medium">
+                          {experienceSummary.years_found ?? 0} {experienceSummary.years_found === 1 ? 'year' : 'years'}
+                        </span>
+                      </p>
+                      {experienceSummary.user_years != null && (
+                        <p>
+                          You entered:{' '}
+                          <span className="font-medium">
+                            {experienceSummary.user_years}{' '}
+                            {experienceSummary.user_years === 1 ? 'year' : 'years'}
+                          </span>
+                        </p>
+                      )}
+                      <p>
+                        Detail level:{' '}
+                        <span className="font-medium capitalize">
+                          {experienceSummary.detail_level || 'unknown'}
+                        </span>
+                      </p>
+                      <p>
+                        Consistent with resume:{' '}
+                        <span
+                          className={`font-semibold ${
+                            experienceSummary.consistent ? 'text-green-600' : 'text-red-600'
+                          }`}
+                        >
+                          {experienceSummary.consistent ? 'Yes' : 'No'}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ATS Health Check */}
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                  <div className="flex items-center mb-4">
+                    <Zap className="w-6 h-6 text-purple-600 mr-3" />
+                    <h3 className="text-lg font-bold text-gray-900">ATS Health Check</h3>
+                  </div>
+                  <div className="space-y-2 text-sm text-gray-700">
+                    <AtsCheckRow
+                      label="Standard sections (Experience, Education, Skills)"
+                      ok={atsChecks.standard_sections}
+                    />
+                    <AtsCheckRow label="Simple formatting (no complex tables)" ok={atsChecks.simple_formatting} />
+                    <AtsCheckRow label="Contact info detectable" ok={atsChecks.contact_info} />
+                    <AtsCheckRow label="Appropriate length" ok={atsChecks.appropriate_length} />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Two Column Layout */}
             <div className="grid md:grid-cols-2 gap-6">
               {/* Strengths */}
-              {data.recommendations.strengths && data.recommendations.strengths.length > 0 && (
+              {data.recommendations?.strengths && data.recommendations.strengths.length > 0 && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6">
                   <div className="flex items-center mb-4">
                     <CheckCircle className="w-6 h-6 text-green-600 mr-3" />
@@ -443,7 +572,7 @@ function ResultsPage({ data, onBack }) {
               )}
 
               {/* Improvements */}
-              {data.recommendations.improvements && data.recommendations.improvements.length > 0 && (
+              {data.recommendations?.improvements && data.recommendations.improvements.length > 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
                   <div className="flex items-center mb-4">
                     <Target className="w-6 h-6 text-yellow-600 mr-3" />
@@ -466,57 +595,71 @@ function ResultsPage({ data, onBack }) {
               <div className="flex items-center mb-4">
                 <Award className="w-6 h-6 text-blue-600 mr-3" />
                 <h3 className="text-xl font-bold text-blue-900">
-                  Skills Analysis ({data.analysis.total_skills} found)
+                  Skills Analysis ({data.analysis?.total_skills || 0} found)
                 </h3>
               </div>
-              
+
               {/* Skills Found */}
               <div className="mb-4">
                 <h4 className="font-semibold text-blue-800 mb-2">Skills Detected:</h4>
                 <div className="flex flex-wrap gap-2">
-                  {data.analysis.skills_found.slice(0, 15).map((skill, i) => (
-                    <span key={i} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                  {(data.analysis?.skills_found || []).slice(0, 15).map((skill, i) => (
+                    <span
+                      key={i}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium"
+                    >
                       {skill}
                     </span>
                   ))}
-                  {data.analysis.skills_found.length > 15 && (
-                    <span className="px-3 py-1 bg-blue-200 text-blue-800 rounded-full text-sm font-medium">
-                      +{data.analysis.skills_found.length - 15} more
-                    </span>
-                  )}
+                  {data.analysis?.skills_found &&
+                    data.analysis.skills_found.length > 15 && (
+                      <span className="px-3 py-1 bg-blue-200 text-blue-800 rounded-full text-sm font-medium">
+                        +{data.analysis.skills_found.length - 15} more
+                      </span>
+                    )}
                 </div>
               </div>
 
               {/* Missing Skills */}
-              {data.analysis.missing_required_skills && data.analysis.missing_required_skills.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-red-800 mb-2">Missing Critical Skills:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {data.analysis.missing_required_skills.map((skill, i) => (
-                      <span key={i} className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-                        {skill}
-                      </span>
-                    ))}
+              {data.analysis?.missing_required_skills &&
+                data.analysis.missing_required_skills.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-red-800 mb-2">Missing Critical Skills:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {data.analysis.missing_required_skills.map((skill, i) => (
+                        <span
+                          key={i}
+                          className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
             {/* Additional Stats */}
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-gray-50 rounded-lg p-4 text-center">
                 <FileText className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-gray-900">{data.analysis.word_count}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {data.analysis?.word_count != null ? data.analysis.word_count : '-'}
+                </div>
                 <div className="text-sm text-gray-600">Words</div>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 text-center">
                 <Briefcase className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-gray-900">{data.analysis.sections_found.length}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {data.analysis?.sections_found ? data.analysis.sections_found.length : '-'}
+                </div>
                 <div className="text-sm text-gray-600">Sections</div>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 text-center">
                 <GraduationCap className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-gray-900">{data.analysis.total_skills}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {data.analysis?.total_skills != null ? data.analysis.total_skills : '-'}
+                </div>
                 <div className="text-sm text-gray-600">Skills</div>
               </div>
             </div>
@@ -525,7 +668,7 @@ function ResultsPage({ data, onBack }) {
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-6">
               <h3 className="text-xl font-bold text-indigo-900 mb-4">📋 Next Steps</h3>
               <ol className="space-y-2">
-                {data.next_steps.map((step, i) => (
+                {(data.next_steps || []).map((step, i) => (
                   <li key={i} className="text-indigo-800 flex items-start">
                     <span className="font-bold mr-3">{i + 1}.</span>
                     <span>{step}</span>
@@ -552,6 +695,44 @@ function ResultsPage({ data, onBack }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Small helper components for clean JSX
+
+function ContactRow({ label, present, Icon }) {
+  return (
+    <div className="flex items-center">
+      <Icon className={`w-4 h-4 mr-2 ${present ? 'text-green-600' : 'text-gray-400'}`} />
+      <span className="flex-1">{label}</span>
+      <span
+        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+          present ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+        }`}
+      >
+        {present ? 'Present' : 'Missing'}
+      </span>
+    </div>
+  );
+}
+
+function AtsCheckRow({ label, ok }) {
+  return (
+    <div className="flex items-center">
+      <span
+        className={`w-2 h-2 rounded-full mr-2 ${
+          ok ? 'bg-green-500' : 'bg-red-500'
+        }`}
+      />
+      <span className="flex-1 text-sm text-gray-700">{label}</span>
+      <span
+        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+          ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+        }`}
+      >
+        {ok ? 'OK' : 'Check'}
+      </span>
     </div>
   );
 }
