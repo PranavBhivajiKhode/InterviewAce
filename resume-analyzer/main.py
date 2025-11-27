@@ -99,23 +99,27 @@ class AnalyzeRequest(BaseModel):
     experience: Optional[str] = ""
     name: Optional[str] = ""
 
+
+# ---------- Helper functions ----------
+
 # Download resume file (for URL-based uploads)
 def download_file(url: str) -> bytes:
     try:
         if 'firebasestorage.googleapis.com' in url and 'alt=media' not in url:
             separator = '&' if '?' in url else '?'
             url = f"{url}{separator}alt=media"
-        
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
-        
+
         resp = requests.get(url, timeout=30, headers=headers, allow_redirects=True)
         resp.raise_for_status()
         return resp.content
-        
+
     except requests.RequestException as e:
         raise HTTPException(status_code=400, detail=f"Failed to download resume: {str(e)}")
+
 
 # PDF parser
 def extract_text_from_pdf_bytes(b: bytes) -> str:
@@ -126,6 +130,7 @@ def extract_text_from_pdf_bytes(b: bytes) -> str:
             if text:
                 pages.append(text)
     return "\n".join(pages)
+
 
 # DOCX parser
 def extract_text_from_docx_bytes(b: bytes) -> str:
@@ -140,6 +145,7 @@ def extract_text_from_docx_bytes(b: bytes) -> str:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
 
+
 # Enhanced cleaning
 def simple_clean(text: str) -> str:
     text = re.sub(r'\t+', ' ', text)
@@ -147,25 +153,29 @@ def simple_clean(text: str) -> str:
     text = re.sub(r'\n\s*\n+', '\n\n', text)
     return text.strip().lower()
 
+
 # Extract contact information
 def extract_contact_info(text: str) -> Dict[str, bool]:
+    # phone pattern supports 10-digit (India) and US-style numbers
+    phone_pattern = r'(\+?\d{1,3}[-.\s]?)?(\d{10}|\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})'
     contacts = {
         "email": bool(re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)),
-        "phone": bool(re.search(r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', text)),
+        "phone": bool(re.search(phone_pattern, text)),
         "linkedin": bool(re.search(r'linkedin\.com/in/[\w-]+', text, re.I)),
         "github": bool(re.search(r'github\.com/[\w-]+', text, re.I)),
         "portfolio": bool(re.search(r'(portfolio|website|http)', text, re.I))
     }
     return contacts
 
+
 # Enhanced skill extraction with context
 def extract_skills(text: str) -> Tuple[List[str], Dict[str, int]]:
     found_skills = set()
     skill_frequency = Counter()
-    
+
     words = re.findall(r'\b\w+(?:\.\w+)?\b', text.lower())
     text_with_spaces = ' ' + text.lower() + ' '
-    
+
     for skill in SKILLS_DB:
         if ' ' in skill or '.' in skill:
             pattern = r'\b' + re.escape(skill) + r'\b'
@@ -177,8 +187,9 @@ def extract_skills(text: str) -> Tuple[List[str], Dict[str, int]]:
             if skill in words:
                 found_skills.add(skill)
                 skill_frequency[skill] = words.count(skill)
-    
+
     return sorted(list(found_skills)), dict(skill_frequency)
+
 
 # Enhanced section detection
 def extract_sections(text: str) -> Dict[str, str]:
@@ -196,12 +207,12 @@ def extract_sections(text: str) -> Dict[str, str]:
     sections = {}
     current_section = "header"
     current_content = []
-    
+
     for line in lines:
         line_stripped = line.strip()
         if not line_stripped:
             continue
-            
+
         matched = False
         for section_name, pattern in patterns.items():
             if re.search(pattern, line_stripped, re.I) and len(line_stripped) < 50:
@@ -211,34 +222,74 @@ def extract_sections(text: str) -> Dict[str, str]:
                 current_content = []
                 matched = True
                 break
-        
+
         if not matched:
             current_content.append(line_stripped)
-    
+
     if current_content:
         sections[current_section] = '\n'.join(current_content)
-    
+
     return sections
+
+
+# Parse user entered experience years safely
+def parse_user_experience_years(user_exp: str) -> Optional[float]:
+    """
+    Convert user input like 'Fresher', '0-1 years', '2 yrs', '1.5' into a float.
+    Returns None if it can't be parsed.
+    """
+    if not user_exp:
+        return None
+
+    user_exp = user_exp.strip().lower()
+    if user_exp in {"fresher", "freshers"}:
+        return 0.0
+
+    # pick first number (supports decimals)
+    match = re.search(r'(\d+(\.\d+)?)', user_exp)
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
+
+    return None
+
 
 # Analyze experience years and details
 def analyze_experience(exp_text: str, user_exp: str) -> Dict:
     year_ranges = re.findall(r'(20\d{2})\s*[-–—to]+\s*(20\d{2}|present|current)', exp_text, re.I)
-    
+
     total_years = 0
     for start, end in year_ranges:
         start_year = int(start)
         end_year = datetime.now().year if end.lower() in ['present', 'current'] else int(end)
         total_years += max(0, end_year - start_year)
-    
+
     explicit_years = re.findall(r'(\d+)\+?\s*years?', exp_text, re.I)
     if explicit_years:
         total_years = max(total_years, int(explicit_years[0]))
-    
+
+    parsed_user_years = parse_user_experience_years(user_exp)
+    if parsed_user_years is not None:
+        consistent = abs(total_years - parsed_user_years) <= 1
+    else:
+        # if user didn't specify or it's unparseable, don't penalize
+        consistent = True
+
+    detail_level = "low"
+    if len(exp_text.split('\n')) > 5:
+        detail_level = "high"
+    elif len(exp_text) > 100:
+        detail_level = "medium"
+
     return {
         "years_found": total_years,
-        "consistent": True if not user_exp else abs(total_years - float(user_exp or 0)) <= 1,
-        "detail_level": "high" if len(exp_text.split('\n')) > 5 else "medium" if len(exp_text) > 100 else "low"
+        "user_years": parsed_user_years,
+        "consistent": consistent,
+        "detail_level": detail_level
     }
+
 
 # Count action verbs
 def count_action_verbs(text: str) -> Tuple[int, List[str]]:
@@ -247,6 +298,7 @@ def count_action_verbs(text: str) -> Tuple[int, List[str]]:
         if re.search(r'\b' + verb + r'\w*\b', text, re.I):
             found_verbs.append(verb)
     return len(found_verbs), found_verbs
+
 
 # Analyze achievements and quantification
 def analyze_achievements(text: str) -> Dict:
@@ -257,41 +309,44 @@ def analyze_achievements(text: str) -> Dict:
         "time_saved": r'\d+\s*(hours?|days?|weeks?|months?)',
         "team_size": r'team\s+of\s+\d+',
     }
-    
+
     metrics_found = {}
     for metric_type, pattern in metrics_patterns.items():
         matches = re.findall(pattern, text, re.I)
         metrics_found[metric_type] = len(matches)
-    
+
     total_metrics = sum(metrics_found.values())
-    
+
     return {
         "total_quantified": total_metrics,
         "metrics_breakdown": metrics_found,
         "has_impact": total_metrics > 3
     }
 
+
 # Check ATS optimization
 def check_ats_optimization(text: str, sections: Dict) -> Dict:
     ats_score = {}
     ats_score["simple_formatting"] = not bool(re.search(r'[│┤┼╪╫╬═║]', text))
-    ats_score["no_images_text"] = True
+    ats_score["no_images_text"] = True  # assumption for text-only parsing
     ats_score["standard_sections"] = len(set(sections.keys()) & {"experience", "education", "skills"}) == 3
     ats_score["contact_info"] = bool(re.search(r'@', text))
     word_count = len(text.split())
     ats_score["appropriate_length"] = 300 < word_count < 1500
     return ats_score
 
+
+# ---------- Scoring & recommendation ----------
+
 # Enhanced scoring function
 def compute_scores(
-    text: str, 
-    found_skills: List[str], 
+    text: str,
+    found_skills: List[str],
     skill_freq: Dict[str, int],
-    sections: Dict[str, str], 
-    role: str, 
+    sections: Dict[str, str],
+    role: str,
     user_experience: str
 ) -> Tuple[int, Dict]:
-    
     detailed_scores = {
         "format_structure": 0,
         "contact_info": 0,
@@ -301,87 +356,88 @@ def compute_scores(
         "achievements_impact": 0,
         "ats_optimization": 0,
     }
-    
+
     # 1. Format & Structure (15 points)
     required_sections = {"experience", "education", "skills"}
     found_sections = set(sections.keys())
     section_score = len(required_sections & found_sections) * 4
     detailed_scores["format_structure"] = min(section_score, 12)
-    
+
     if "summary" in sections or "header" in sections:
         detailed_scores["format_structure"] += 3
-    
+
     # 2. Contact Information (5 points)
     contacts = extract_contact_info(text)
     contact_score = sum([2 if k in ["email", "phone"] else 0.5 for k, v in contacts.items() if v])
     detailed_scores["contact_info"] = min(contact_score, 5)
-    
+
     # 3. Skills Match (25 points)
     role_lower = role.lower()
     if role_lower in ROLE_SKILLS:
         role_info = ROLE_SKILLS[role_lower]
         found_set = set(found_skills)
-        
+
         must_have = set(role_info["must_have"])
         good_to_have = set(role_info["good_to_have"])
-        
+
         must_have_found = must_have & found_set
         good_to_have_found = good_to_have & found_set
-        
+
         must_have_score = len(must_have_found) * 2.5
         good_to_have_score = len(good_to_have_found) * 1
-        
+
         detailed_scores["skills_match"] = min(must_have_score + good_to_have_score, 25)
     else:
+        # generic fallback
         detailed_scores["skills_match"] = min(len(found_skills) * 2, 25)
-    
+
     # 4. Experience Quality (20 points)
     exp_text = sections.get("experience", "")
     if exp_text:
         exp_analysis = analyze_experience(exp_text, user_experience)
         action_count, _ = count_action_verbs(exp_text)
-        
+
         if exp_analysis["consistent"]:
             detailed_scores["experience_quality"] += 5
         elif exp_analysis["years_found"] > 0:
             detailed_scores["experience_quality"] += 3
-        
+
         if exp_analysis["detail_level"] == "high":
             detailed_scores["experience_quality"] += 5
         elif exp_analysis["detail_level"] == "medium":
             detailed_scores["experience_quality"] += 3
-        
+
         detailed_scores["experience_quality"] += min(action_count * 0.5, 5)
-        
+
         if role_lower in ROLE_SKILLS:
             keywords = ROLE_SKILLS[role_lower]["keywords"]
             keyword_matches = sum(1 for k in keywords if k in exp_text.lower())
             detailed_scores["experience_quality"] += min(keyword_matches * 0.8, 5)
-    
+
     # 5. Education (10 points)
     edu_text = sections.get("education", "")
     if edu_text:
         degrees = ["bachelor", "master", "phd", "b.tech", "m.tech", "b.s", "m.s", "degree"]
         if any(d in edu_text.lower() for d in degrees):
             detailed_scores["education"] += 5
-        
+
         if re.search(r'20\d{2}', edu_text):
             detailed_scores["education"] += 3
-        
+
         if re.search(r'gpa|coursework|courses', edu_text, re.I):
             detailed_scores["education"] += 2
-    
+
     # 6. Achievements & Impact (15 points)
     achievement_analysis = analyze_achievements(text)
     if achievement_analysis["has_impact"]:
         detailed_scores["achievements_impact"] += 8
     else:
         detailed_scores["achievements_impact"] += min(achievement_analysis["total_quantified"] * 1.5, 5)
-    
+
     impact_verbs = ["increased", "decreased", "improved", "reduced", "achieved", "exceeded"]
     impact_count = sum(1 for v in impact_verbs if v in text)
     detailed_scores["achievements_impact"] += min(impact_count * 1, 7)
-    
+
     # 7. ATS Optimization (10 points)
     ats_check = check_ats_optimization(text, sections)
     ats_score = sum([
@@ -391,9 +447,10 @@ def compute_scores(
         3 if ats_check["appropriate_length"] else 1
     ])
     detailed_scores["ats_optimization"] = min(ats_score, 10)
-    
+
     total_score = sum(detailed_scores.values())
     return min(round(total_score), 100), detailed_scores
+
 
 # Generate personalized recommendations
 def generate_recommendations(
@@ -403,77 +460,79 @@ def generate_recommendations(
     role: str,
     text: str
 ) -> Dict[str, List[str]]:
-    
     strengths = []
     improvements = []
     critical_issues = []
-    
+
     contacts = extract_contact_info(text)
     if sum(contacts.values()) >= 3:
         strengths.append("✓ Complete contact information with professional links")
     elif not contacts["email"]:
         critical_issues.append("⚠ Missing email address - this is critical for ATS systems")
-    
+
     if detailed_scores["format_structure"] >= 12:
         strengths.append("✓ Well-organized resume with clear section headers")
     elif detailed_scores["format_structure"] < 8:
         critical_issues.append("⚠ Missing key sections - add Summary, Skills, Experience, and Education")
-    
+
     role_lower = role.lower()
     if role_lower in ROLE_SKILLS:
         role_info = ROLE_SKILLS[role_lower]
         found_set = set(found_skills)
         missing_must = set(role_info["must_have"]) - found_set
         missing_good = set(role_info["good_to_have"]) - found_set
-        
+
         if detailed_scores["skills_match"] >= 20:
             strengths.append(f"✓ Excellent technical skills alignment for {role}")
         elif detailed_scores["skills_match"] >= 15:
             strengths.append(f"✓ Good technical skills for {role}")
-        
+
         if missing_must:
             critical_issues.append(f"⚠ Missing critical skills: {', '.join(list(missing_must)[:3])}")
         if missing_good and len(missing_good) > 3:
             improvements.append(f"Consider adding: {', '.join(list(missing_good)[:4])}")
-    
+
     if detailed_scores["experience_quality"] >= 15:
         strengths.append("✓ Strong experience section with action verbs and details")
     else:
         if detailed_scores["experience_quality"] < 10:
             critical_issues.append("⚠ Experience section lacks detail and impact")
         improvements.append("Start bullet points with strong action verbs (led, developed, improved)")
-    
+
     achievement_analysis = analyze_achievements(text)
     if achievement_analysis["has_impact"]:
         strengths.append("✓ Quantified achievements with measurable impact")
     else:
         improvements.append("Add metrics to show impact (e.g., 'Increased efficiency by 30%', 'Managed team of 5')")
-    
+
     if detailed_scores["education"] >= 7:
         strengths.append("✓ Clear education credentials")
     elif detailed_scores["education"] < 5:
         improvements.append("Add graduation years and relevant coursework to education")
-    
+
     if detailed_scores["ats_optimization"] >= 8:
         strengths.append("✓ ATS-friendly formatting and structure")
     else:
         improvements.append("Use standard section headers and avoid complex tables or graphics")
-    
+
     action_count, found_verbs = count_action_verbs(text)
     if action_count < 5:
         improvements.append("Use more action verbs throughout your resume (achieved, developed, led)")
-    
+
     word_count = len(text.split())
     if word_count < 300:
         critical_issues.append("⚠ Resume is too short - aim for 400-600 words for better ATS scores")
     elif word_count > 1500:
         improvements.append("Consider condensing content to 1-2 pages for better readability")
-    
+
     return {
         "strengths": strengths,
         "improvements": improvements,
         "critical_issues": critical_issues
     }
+
+
+# ---------- Endpoints ----------
 
 # NEW ENDPOINT: Direct file upload and analysis
 @app.post("/upload-and-analyze")
@@ -488,14 +547,14 @@ async def upload_and_analyze(
     Accept PDF/DOCX file directly from frontend and analyze it.
     No external storage needed - processes file in memory.
     """
-    
+
     # Validate file type
     if not (file.filename.endswith('.pdf') or file.filename.endswith('.docx')):
         raise HTTPException(
             status_code=400,
             detail="Only PDF and DOCX files are supported"
         )
-    
+
     # Read file bytes
     try:
         file_bytes = await file.read()
@@ -504,14 +563,14 @@ async def upload_and_analyze(
             status_code=400,
             detail=f"Could not read file: {str(e)}"
         )
-    
+
     # Check file size (limit to 10MB)
     if len(file_bytes) > 10 * 1024 * 1024:
         raise HTTPException(
             status_code=400,
             detail="File too large. Maximum size is 10MB"
         )
-    
+
     # Extract text
     try:
         text = extract_text_from_pdf_bytes(file_bytes)
@@ -525,28 +584,33 @@ async def upload_and_analyze(
                 status_code=500,
                 detail=f"Text extraction failed: {str(e)}"
             )
-    
+
     if len(text.strip()) < 50:
         raise HTTPException(
             status_code=400,
             detail="Resume text too short or empty. Please ensure your PDF contains readable text."
         )
-    
+
     # Clean and analyze
     clean_text = simple_clean(text)
     sections = extract_sections(clean_text)
     found_skills, skill_frequency = extract_skills(clean_text)
-    
+
     # Compute scores
     ats_score, detailed_scores = compute_scores(
-        clean_text, 
-        found_skills, 
+        clean_text,
+        found_skills,
         skill_frequency,
-        sections, 
+        sections,
         role,
         experience
     )
-    
+
+    # Extra meta info for better reports
+    contact_info = extract_contact_info(clean_text)
+    experience_summary = analyze_experience(sections.get("experience", ""), experience)
+    ats_checks = check_ats_optimization(clean_text, sections)
+
     # Generate recommendations
     recommendations = generate_recommendations(
         detailed_scores,
@@ -555,24 +619,26 @@ async def upload_and_analyze(
         role,
         clean_text
     )
-    
+
     # Get missing skills
     role_lower = role.lower() if role else ""
     missing_required = []
     missing_preferred = []
-    
+
     if role_lower in ROLE_SKILLS:
         role_info = ROLE_SKILLS[role_lower]
         found_set = set(found_skills)
         missing_required = [s for s in role_info["must_have"] if s not in found_set]
         missing_preferred = [s for s in role_info["good_to_have"] if s not in found_set]
-    
+
     # Top skills by frequency
     top_skills = sorted(skill_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
-    
-    # Calculate match percentage
-    match_percentage = round((ats_score / 100) * 100, 1)
-    
+
+    # Skills match percentage (more meaningful than overall score again)
+    skills_match_pct = 0.0
+    if detailed_scores["skills_match"] > 0:
+        skills_match_pct = round((detailed_scores["skills_match"] / 25) * 100, 1)
+
     # Score interpretation
     if ats_score >= 80:
         score_label = "Excellent"
@@ -586,7 +652,7 @@ async def upload_and_analyze(
     else:
         score_label = "Needs Improvement"
         score_color = "red"
-    
+
     return {
         "success": True,
         "candidate_name": name or "Candidate",
@@ -595,7 +661,7 @@ async def upload_and_analyze(
         "ats_score": ats_score,
         "score_label": score_label,
         "score_color": score_color,
-        "match_percentage": match_percentage,
+        "match_percentage": skills_match_pct,  # now represents skills match
         "detailed_scores": {
             "Format & Structure": detailed_scores["format_structure"],
             "Contact Information": detailed_scores["contact_info"],
@@ -614,6 +680,11 @@ async def upload_and_analyze(
             "sections_found": list(sections.keys()),
             "word_count": len(clean_text.split()),
         },
+        "meta": {
+            "contact_info": contact_info,
+            "experience_summary": experience_summary,
+            "ats_checks": ats_checks
+        },
         "recommendations": recommendations,
         "next_steps": [
             "Address all critical issues immediately",
@@ -623,9 +694,11 @@ async def upload_and_analyze(
         ]
     }
 
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "2.0"}
+    return {"status": "ok", "version": "2.1"}
+
 
 @app.get("/roles")
 def get_roles():
@@ -634,7 +707,7 @@ def get_roles():
         "roles": list(ROLE_SKILLS.keys()),
         "total": len(ROLE_SKILLS)
     }
-    # --- CORRECTED: Removed the stray code block that was here ---
+
 
 # OLD ENDPOINT: URL-based analysis (keep for backward compatibility)
 @app.post("/analyze")
@@ -661,16 +734,20 @@ def analyze(req: AnalyzeRequest):
     clean_text = simple_clean(text)
     sections = extract_sections(clean_text)
     found_skills, skill_frequency = extract_skills(clean_text)
-    
+
     ats_score, detailed_scores = compute_scores(
-        clean_text, 
-        found_skills, 
+        clean_text,
+        found_skills,
         skill_frequency,
-        sections, 
+        sections,
         req.role,
         req.experience
     )
-    
+
+    contact_info = extract_contact_info(clean_text)
+    experience_summary = analyze_experience(sections.get("experience", ""), req.experience)
+    ats_checks = check_ats_optimization(clean_text, sections)
+
     recommendations = generate_recommendations(
         detailed_scores,
         found_skills,
@@ -678,20 +755,23 @@ def analyze(req: AnalyzeRequest):
         req.role,
         clean_text
     )
-    
+
     role_lower = req.role.lower() if req.role else ""
     missing_required = []
     missing_preferred = []
-    
+
     if role_lower in ROLE_SKILLS:
         role_info = ROLE_SKILLS[role_lower]
         found_set = set(found_skills)
         missing_required = [s for s in role_info["must_have"] if s not in found_set]
         missing_preferred = [s for s in role_info["good_to_have"] if s not in found_set]
-    
+
     top_skills = sorted(skill_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
-    match_percentage = round((ats_score / 100) * 100, 1)
-    
+
+    skills_match_pct = 0.0
+    if detailed_scores["skills_match"] > 0:
+        skills_match_pct = round((detailed_scores["skills_match"] / 25) * 100, 1)
+
     if ats_score >= 80:
         score_label = "Excellent"
         score_color = "green"
@@ -704,7 +784,7 @@ def analyze(req: AnalyzeRequest):
     else:
         score_label = "Needs Improvement"
         score_color = "red"
-    
+
     return {
         "success": True,
         "candidate_name": req.name or "Candidate",
@@ -713,7 +793,7 @@ def analyze(req: AnalyzeRequest):
         "ats_score": ats_score,
         "score_label": score_label,
         "score_color": score_color,
-        "match_percentage": match_percentage,
+        "match_percentage": skills_match_pct,
         "detailed_scores": {
             "Format & Structure": detailed_scores["format_structure"],
             "Contact Information": detailed_scores["contact_info"],
@@ -732,6 +812,11 @@ def analyze(req: AnalyzeRequest):
             "sections_found": list(sections.keys()),
             "word_count": len(clean_text.split()),
         },
+        "meta": {
+            "contact_info": contact_info,
+            "experience_summary": experience_summary,
+            "ats_checks": ats_checks
+        },
         "recommendations": recommendations,
         "next_steps": [
             "Address all critical issues immediately",
@@ -740,6 +825,7 @@ def analyze(req: AnalyzeRequest):
             "Review and implement suggested improvements"
         ]
     }
+
 
 # ADDED: Uvicorn runner for local development
 if __name__ == "__main__":
