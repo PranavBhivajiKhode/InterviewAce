@@ -11,6 +11,7 @@ import AiInterview from './AiInterview/AiInterview';
 import AiInterviewVideoPage from './/AiInterview/AiInterviewVideoPage';  // ✅ corrected path
 import ReportDetails from './AiInterview/ReportDetails';
 import LiveInterview from './LiveInterview/LiveInterview';
+import InterviewScheduler from './LiveInterview/InterviewScheduler';
 
 // A simple component to simulate a protected route
 // TODO: Replace with real auth logic
@@ -53,6 +54,7 @@ function App() {
           {/* TODO: Create these pages */}
           {/* <Route path="schedule" element={<SchedulePage />} /> */}
           {/* <Route path="report/:id" element={<ReportDetailsById />} /> */}
+          <Route path="schedule-interview" element={<InterviewScheduler />} />
         </Route>
         
         {/* Fallback route */}

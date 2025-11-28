@@ -62,7 +62,7 @@ export default function Dashboard() {
           
           {/* Interview Scheduling Card */}
           <FeatureCard
-            to="/schedule"
+            to="/schedule-interview"
             icon={<Calendar size={32} className="text-amber-500" />}
             title="Schedule Interview"
             description="Manage your bookings and schedule new live interviews."
