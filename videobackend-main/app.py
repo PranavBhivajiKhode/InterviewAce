@@ -214,13 +214,9 @@ def analyze_audio_fluency(video_path: str) -> dict:
 
 def analyze_gaze_and_emotion(video_path: str) -> dict:
     """
-    Approximate eye contact and dominant emotions using:
-    - DeepFace for emotion (sampled frames, downscaled)
-    - MediaPipe Face Mesh + Iris for gaze:
-      we look at iris center relative to eye corners to see
-      if the candidate is roughly looking at the screen/camera.
+    Improved gaze + emotion analysis with relaxed thresholds and better robustness.
     """
-    print(f"[VIDEO] Starting gaze & emotion analysis for {video_path}")
+    print(f"[VIDEO] Starting improved gaze & emotion analysis for {video_path}")
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -257,20 +253,26 @@ def analyze_gaze_and_emotion(video_path: str) -> dict:
     frames_with_eye_contact = 0
 
     frame_idx = 0
-
     mp_face_mesh = mp_solutions.solutions.face_mesh
 
     def avg_coords(landmarks, indices):
-        xs = [landmarks[i].x for i in indices]
-        ys = [landmarks[i].y for i in indices]
-        return sum(xs) / len(xs), sum(ys) / len(ys)
+        """Safely average coordinates, skip if indices missing."""
+        valid_coords = []
+        for i in indices:
+            if i < len(landmarks):
+                valid_coords.append((landmarks[i].x, landmarks[i].y))
+        if valid_coords:
+            xs = [coord[0] for coord in valid_coords]
+            ys = [coord[1] for coord in valid_coords]
+            return sum(xs) / len(xs), sum(ys) / len(ys)
+        return 0.5, 0.5  # fallback center
 
     with mp_face_mesh.FaceMesh(
         static_image_mode=False,
         max_num_faces=1,
         refine_landmarks=True,  # needed for iris
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5
+        min_detection_confidence=0.3,  # lowered for more detections
+        min_tracking_confidence=0.3    # lowered for more detections
     ) as face_mesh:
 
         while True:
@@ -279,14 +281,14 @@ def analyze_gaze_and_emotion(video_path: str) -> dict:
                 break
 
             if frame_idx % sample_stride == 0:
-                # ---------- EMOTION ANALYSIS ----------
+                # ---------- EMOTION ANALYSIS (unchanged) ----------
                 try:
                     small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
                     emotion_result = DeepFace.analyze(
                         small_frame,
                         actions=["emotion"],
                         enforce_detection=False,
-                        detector_backend="opencv"  # faster
+                        detector_backend="opencv"
                     )
                     if isinstance(emotion_result, list) and len(emotion_result) > 0:
                         dom = emotion_result[0].get("dominant_emotion", None)
@@ -296,10 +298,9 @@ def analyze_gaze_and_emotion(video_path: str) -> dict:
                     if dom:
                         emotion_counts[dom] += 1
                 except Exception:
-                    # DeepFace may fail for some frames; skip them
                     pass
 
-                # ---------- GAZE / SCREEN ENGAGEMENT (IRIS) ----------
+                # ---------- IMPROVED GAZE DETECTION ----------
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = face_mesh.process(rgb_frame)
 
@@ -307,56 +308,79 @@ def analyze_gaze_and_emotion(video_path: str) -> dict:
                     total_face_frames += 1
                     landmarks = results.multi_face_landmarks[0].landmark
 
-                    # Eye corners & iris indices (MediaPipe FaceMesh)
-                    # Left eye: 33 (outer), 133 (inner)
-                    # Right eye: 362 (outer), 263 (inner)
-                    # Left iris: 468, 469, 470, 471
-                    # Right iris: 473, 474, 475, 476
                     try:
-                        # LEFT EYE
-                        left_outer = landmarks[33]
-                        left_inner = landmarks[133]
-                        left_iris_x, _ = avg_coords(landmarks, [468, 469, 470, 471])
+                        # Eye corners & iris (more robust indexing)
+                        left_outer_idx = 33
+                        left_inner_idx = 133
+                        right_outer_idx = 362
+                        right_inner_idx = 263
+                        
+                        left_iris_indices = [468, 469, 470, 471]
+                        right_iris_indices = [473, 474, 475, 476]
 
-                        # RIGHT EYE
-                        right_outer = landmarks[362]
-                        right_inner = landmarks[263]
-                        right_iris_x, _ = avg_coords(landmarks, [473, 474, 475, 476])
+                        # Safely get eye corners
+                        left_outer = landmarks[left_outer_idx] if left_outer_idx < len(landmarks) else None
+                        left_inner = landmarks[left_inner_idx] if left_inner_idx < len(landmarks) else None
+                        right_outer = landmarks[right_outer_idx] if right_outer_idx < len(landmarks) else None
+                        right_inner = landmarks[right_inner_idx] if right_inner_idx < len(landmarks) else None
 
-                        # Normalized iris position within each eye (0 = outer, 1 = inner)
+                        # Safely get iris centers
+                        left_iris_x, _ = avg_coords(landmarks, left_iris_indices)
+                        right_iris_x, _ = avg_coords(landmarks, right_iris_indices)
+
+                        # IMPROVED: More lenient normalization (0=left, 1=right)
                         def normalized_pos(outer, inner, iris_x):
-                            denom = (inner.x - outer.x)
-                            if abs(denom) < 1e-5:
+                            if outer is None or inner is None:
+                                return 0.5  # neutral if eye corners missing
+                            
+                            denom = abs(inner.x - outer.x)
+                            if denom < 1e-4:  # very small eye width
                                 return 0.5
-                            return (iris_x - outer.x) / denom
+                            
+                            # Flip logic if right eye (outer.x > inner.x)
+                            if outer.x < inner.x:  # left eye
+                                return (iris_x - outer.x) / denom
+                            else:  # right eye
+                                return (inner.x - iris_x) / denom  # reversed for right eye
 
                         left_norm = normalized_pos(left_outer, left_inner, left_iris_x)
                         right_norm = normalized_pos(right_outer, right_inner, right_iris_x)
 
-                        # If iris is near the center of both eyes, we assume
-                        # the candidate is looking toward the screen/camera.
-                        # 0.3–0.7 = central region (tune if needed)
-                        left_centered = 0.3 <= left_norm <= 0.7
-                        right_centered = 0.3 <= right_norm <= 0.7
+                        # RELAXED: Much wider "center" range (0.2-0.8 instead of 0.3-0.7)
+                        # Accept if EITHER eye is centered (not both)
+                        left_centered = 0.2 <= left_norm <= 0.8
+                        right_centered = 0.2 <= right_norm <= 0.8
+                        at_least_one_eye_centered = left_centered or right_centered
 
-                        # Extra safety: head not rotated too much (using symmetry)
-                        # Compare distance nose->left eye vs nose->right eye
-                        nose = landmarks[1]
-                        def dist(a, b):
-                            return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+                        # SIMPLIFIED HEAD FACING: Much more lenient (0.6 instead of 0.75)
+                        # Only check if both eye corners available
+                        head_facing = True
+                        if left_outer and right_outer:
+                            nose = landmarks[1] if 1 < len(landmarks) else landmarks[0]
+                            def dist(a, b):
+                                return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+                            
+                            d_left = dist(left_outer, nose)
+                            d_right = dist(right_outer, nose)
+                            if max(d_left, d_right) > 0:
+                                ratio_lr = min(d_left, d_right) / max(d_left, d_right)
+                                head_facing = ratio_lr > 0.6  # much more lenient
 
-                        d_left = dist(left_outer, nose)
-                        d_right = dist(right_outer, nose)
-                        ratio_lr = min(d_left, d_right) / max(d_left, d_right) if max(d_left, d_right) > 0 else 1.0
-                        is_head_facing = ratio_lr > 0.75  # tune: higher = stricter
-
-                        is_looking_at_screen = left_centered and right_centered and is_head_facing
+                        # IMPROVED LOGIC: Much easier to pass
+                        is_looking_at_screen = at_least_one_eye_centered and head_facing
 
                         if is_looking_at_screen:
                             frames_with_eye_contact += 1
 
+                        # Debug print for first 10 frames (remove later)
+                        if total_face_frames <= 10:
+                            print(f"[GAZE DEBUG] Frame {total_face_frames}: "
+                                  f"L:{left_norm:.2f}, R:{right_norm:.2f}, "
+                                  f"eyes:{at_least_one_eye_centered}, head:{head_facing}, "
+                                  f"contact:{is_looking_at_screen}")
+
                     except Exception as e:
-                        # If any landmark missing, skip gaze for this frame
+                        # Silently skip bad frames
                         pass
 
             frame_idx += 1
@@ -367,7 +391,7 @@ def analyze_gaze_and_emotion(video_path: str) -> dict:
     if total_face_frames > 0:
         gaze_percentage = (frames_with_eye_contact / total_face_frames) * 100.0
 
-    # ---------- EMOTION SUMMARY ----------
+    # Emotion summary (unchanged)
     if emotion_counts:
         dominant_emotion, count = emotion_counts.most_common(1)[0]
         total_emotion_frames = sum(emotion_counts.values())
@@ -376,7 +400,7 @@ def analyze_gaze_and_emotion(video_path: str) -> dict:
         dominant_emotion = "neutral"
         confidence = 0.0
 
-    print(f"[VIDEO] Eye contact (screen engagement): {gaze_percentage:.2f}% over {total_face_frames} face frames")
+    print(f"[VIDEO] Eye contact: {gaze_percentage:.2f}% ({frames_with_eye_contact}/{total_face_frames} frames)")
     print(f"[VIDEO] Dominant emotion: {dominant_emotion} ({confidence:.2f}%)")
 
     return {
