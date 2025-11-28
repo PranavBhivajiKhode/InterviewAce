@@ -22,7 +22,9 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/interview")
-@CrossOrigin(origins = "http://localhost:3000, http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(origins = "http://localhost:3000, http://localhost:5173", allowCredentials = "true"
+        ,exposedHeaders = "X-Session-Id"
+)
 public class InterviewController {
 
     private final InterviewService interviewService;

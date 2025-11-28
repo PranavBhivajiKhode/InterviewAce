@@ -1,0 +1,34 @@
+{
+  "status": "success",
+  "fluency": {
+    "transcript": "Audio unclear or no speech detected.",
+    "filler_count": 0,
+    "word_count": 0,
+    "speaking_rate_wpm": 0.0,
+    "filler_per_100_words": 0.0,
+    "status": "ok"
+  },
+  "gaze": {
+    "percentage": 6.45,
+    "looked_away_events": 29,
+    "total_face_frames": 31,
+    "frames_with_eye_contact": 2
+  },
+  "emotions": {
+    "neutral": 21,
+    "fear": 8,
+    "sad": 2,
+    "surprise": 1,
+    "angry": 1,
+    "happy": 1
+  },
+  "emotion_summary": {
+    "dominant_emotion": "neutral",
+    "confidence": 61.76
+  },
+  "scores": {
+    "eye_contact_score": 6.5,
+    "fluency_score": 80.0,
+    "overall_score": 43.2
+  }
+}
