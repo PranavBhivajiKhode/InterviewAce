@@ -45,7 +45,6 @@ public class InterviewFeedback {
     public FinalVerdict getFinalVerdict() { return finalVerdict; }
     public void setFinalVerdict(FinalVerdict finalVerdict) { this.finalVerdict = finalVerdict; }
 
-    // --- Nested classes ---
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class OverallPerformance {
         private float rating;
