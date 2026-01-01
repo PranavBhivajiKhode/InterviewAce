@@ -46,52 +46,71 @@ InterviewAce is a full-stack AI-powered mock interview platform designed to help
 - Machine Learning models
 
 ---
+Got it 👍
+Below is **clean, properly formatted, 100% copy-paste ready Markdown (.md)**.
+No extra text, no explanations — just paste this directly into your `README.md`.
 
+```md
 ## 📂 Project Structure
+
+```
+
 InterviewAce/
 │
-├── ai-mock/ # Frontend mock interview UI
-├── resume-analyzer/ # ATS resume scoring and analysis
-├── videobackend-main/ # Video and interview analysis backend
-├── Backend/ # Core backend services
+├── ai-mock/               # Frontend mock interview UI
+├── resume-analyzer/       # ATS resume scoring and analysis
+├── videobackend-main/     # Video and interview analysis backend
+├── Backend/               # Core backend services
 ├── README.md
+
+````
 
 ---
 
 ## ⚙️ Installation & Setup
 
 ### 1️⃣ Clone the Repository
+
+```bash
 git clone https://github.com/your-username/InterviewAce.git
 cd InterviewAce
+````
 
 ### 2️⃣ Frontend Setup
-bash
-Copy code
+
+```bash
 cd ai-mock
 npm install
 npm start
+```
 
 ### 3️⃣ Backend Setup
-bash
-Copy code
+
+```bash
 cd Backend
 npm install
 npm run dev
+```
 
 ### 4️⃣ AI Services Setup
-bash
-Copy code
+
+```bash
 cd videobackend-main
 pip install -r requirements.txt
 python app.py
+```
 
-### 🧪 Use Cases
+---
 
-Final year academic project
+## 🧪 Use Cases
 
-Mock interview practice for students
+* Final year academic project
+* Mock interview practice for students
+* Interview preparation for placements
+* AI-powered career guidance system
 
-Interview preparation for placements
+```
 
-AI-powered career guidance system
+
+```
 
